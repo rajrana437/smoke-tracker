@@ -1,20 +1,40 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { TextInput, Button, Title } from 'react-native-paper';
+import { auth, db } from "../services/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 
-const RegisterScreen = ({navigation}) => {
+import { doc, setDoc } from "firebase/firestore"
+
+const RegisterScreen = ({ navigation }) => {
     const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [password, setPassword] = useState('');
 
-    const handleRegister = () => {
-        console.log('Name:', name);
-        console.log('Email:', email);
-        console.log('Phone:', phone);
-        console.log('Password:', password);
+    const handleRegister = async () => {
+        try {
+            await createUserWithEmailAndPassword(auth, `${name.replace(/ /g, "")}@yopmail.com`, phone)
+                .then((userCredential) => {
+                    const userID = userCredential.user.uid;
 
-        navigation.navigate('Smoke Tracker')
+                    setDoc(doc(db, "users", `${userID}`), {
+                        phone,
+                        name
+                    }).then(() => {
+                        console.log("User document successfully written!");
+                        navigation.navigate('Smoke Tracker');
+                    }).catch((error) => {
+                        console.error("Error writing user document: ", error);
+                    });
+                })
+                .catch((error) => {
+                    alert('Signup Error, try again!')
+
+                    console.log('Error during user creation in Auth: ', error);
+                });
+        } catch (error) {
+            console.log('Error during user registration process: ', error);
+            alert('Signup Error, try again!')
+        }
     };
 
     return (
@@ -35,16 +55,7 @@ const RegisterScreen = ({navigation}) => {
                     roundness: 10, // Set border radius for TextInput
                 }}
             />
-            <TextInput
-                label="Email"
-                value={email}
-                onChangeText={(text) => setEmail(text)}
-                style={styles.input}
-                theme={{
-                    colors: { primary: '#FFD700' },
-                    roundness: 10, // Set border radius for TextInput
-                }}
-            />
+
             <TextInput
                 label="Phone"
                 value={phone}
@@ -54,17 +65,7 @@ const RegisterScreen = ({navigation}) => {
                     colors: { primary: '#FFD700' },
                     roundness: 10, // Set border radius for TextInput
                 }}
-            />
-            <TextInput
-                label="Password"
-                value={password}
-                onChangeText={(text) => setPassword(text)}
-                secureTextEntry
-                style={styles.input}
-                theme={{
-                    colors: { primary: '#FFD700' },
-                    roundness: 10, // Set border radius for TextInput
-                }}
+                keyboardType='numeric'
             />
 
 

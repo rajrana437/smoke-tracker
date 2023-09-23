@@ -4,7 +4,7 @@
     "slug": "smokeTracker",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/cig.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash.png",
@@ -21,13 +21,22 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.rajrana437.smokeTracker"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "327972aa-0cb6-43cc-8a8e-b8d505c0d02b"
+      }
+    }
   }
 }

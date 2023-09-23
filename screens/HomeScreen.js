@@ -1,42 +1,104 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { TextInput, Button, Title, Text } from 'react-native-paper';
+import { TextInput, Button, Text } from 'react-native-paper';
+import { collection, addDoc, Timestamp, doc, getDocs } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
 
 const HomeScreen = () => {
     const [cigaretteCount, setCigaretteCount] = useState('');
-    const [cigarettePrice, setCigarettePrice] = useState(0); // Changed to a number
+    const [cigarettePrice, setCigarettePrice] = useState(''); // Changed to a number
     const [entries, setEntries] = useState([]);
     const [isButtonDisabled, setIsButtonDisabled] = useState(true);
+    const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
-    const handleAddEntry = () => {
+    useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setCurrentUser(user);
+        });
+        return unsubscribe;
+    }, []);
+
+    useEffect(() => {
+        // Load user's existing entries when the component mounts
+        if (currentUser) {
+            const loadEntries = async () => {
+                try {
+                    const userDocRef = doc(db, 'users', currentUser.uid);
+                    const entryCollectionRef = collection(userDocRef, 'entries');
+                    
+                    // Use a query to get the documents in the 'entries' collection
+                    const querySnapshot = await getDocs(entryCollectionRef);
+                    
+                    const loadedEntries = [];
+                    querySnapshot.forEach((doc) => {
+                        loadedEntries.push({ id: doc.id, ...doc.data() });
+                    });
+    
+                    setEntries(loadedEntries);
+                } catch (error) {
+                    console.error('Error loading entries:', error);
+                }
+            };
+    
+            loadEntries();
+        }
+    }, [currentUser]);
+
+    const handleAddEntry = async () => {
         if (cigaretteCount && cigarettePrice && !isNaN(parseFloat(cigarettePrice))) {
             const newEntry = {
                 count: cigaretteCount,
                 price: parseFloat(cigarettePrice), // Ensure that price is a valid number
+                timestamp: Timestamp.now(),
             };
-            setEntries([...entries, newEntry]);
-            setCigaretteCount('');
-            setCigarettePrice('');
-            setIsButtonDisabled(true);
+
+            try {
+                // Get the user's document reference
+                const userDocRef = doc(db, 'users', currentUser.uid);
+
+                // Add the new entry to a subcollection named 'entries'
+                const entryCollectionRef = collection(userDocRef, 'entries');
+                await addDoc(entryCollectionRef, newEntry);
+
+                setEntries([...entries, newEntry]);
+                setCigaretteCount('');
+                setCigarettePrice('');
+                setIsButtonDisabled(true);
+            } catch (error) {
+                console.error('Error adding entry:', error);
+            }
+        } else {
+            if (!entries.length) return;
+            let singleCig = entries.find(e => e.count === "1");
+            const newEntry = {
+                count: singleCig.count,
+                price: parseFloat(singleCig.price),
+                timestamp: Timestamp.now(),
+            };
+
+            try {
+                const userDocRef = doc(db, 'users', currentUser.uid);
+                const entryCollectionRef = collection(userDocRef, 'entries');
+                await addDoc(entryCollectionRef, newEntry);
+
+                setEntries([...entries, newEntry]);
+                setCigaretteCount('');
+                setCigarettePrice('');
+                setIsButtonDisabled(true);
+            } catch (error) {
+                console.error('Error adding entry:', error);
+            }
         }
     };
 
-
     // Calculate total cigarettes and total price
     const totalCigarettes = entries.reduce((total, entry) => total + Number(entry.count), 0);
-    const totalPrice = entries.reduce((total, entry) => total + (entry.price * Number(entry.count)), 0);
-
-    // Get today's date and format it
-    const currentDate = new Date();
-    const formattedDate = currentDate.toLocaleDateString();
+    const totalPrice = entries.reduce((total, entry) => total + entry.price * Number(entry.count), 0);
 
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
-
-                {/* Display today's date */}
-                <Text style={styles.dateText}>Date: {formattedDate}</Text>
-
+                <Text style={styles.title}>Cigarette Tracker</Text>
                 <View style={styles.inputContainer}>
                     <TextInput
                         label="No. of Cigarettes"
@@ -46,22 +108,19 @@ const HomeScreen = () => {
                             setIsButtonDisabled(!(text && cigarettePrice));
                         }}
                         style={styles.input}
-                        theme={{ colors: { primary: 'white' }, roundness: 10 }}
+                        keyboardType="numeric"
                     />
                     <TextInput
                         label="Price per Cigarette"
-                        value={cigarettePrice.toString()} // Convert to string
+                        value={cigarettePrice}
                         onChangeText={(text) => {
                             setCigarettePrice(text);
                             setIsButtonDisabled(!(text && cigaretteCount));
                         }}
                         style={styles.input}
-                        theme={{ colors: { primary: 'white' }, roundness: 10 }}
-                        keyboardType='numeric'
+                        keyboardType="numeric"
                     />
-
                 </View>
-
                 <ScrollView
                     style={styles.entriesContainer}
                     contentContainerStyle={styles.entriesContent}
@@ -69,25 +128,19 @@ const HomeScreen = () => {
                     {entries.map((entry, index) => (
                         <View key={index} style={styles.entry}>
                             <Text style={styles.entryText}>Cigarettes: {entry.count}</Text>
-                            <Text style={styles.entryText}>
-                                Price: ${entry.price.toFixed(2)} {/* Format price with 2 decimal places */}
-                            </Text>
+                            <Text style={styles.entryText}>Price: ${entry.price.toFixed(2)}</Text>
                         </View>
                     ))}
                 </ScrollView>
-
-                {/* Total row */}
                 <View style={styles.totalRow}>
                     <Text style={styles.totalText}>Total Cigarettes: {totalCigarettes}</Text>
                     <Text style={styles.totalText}>Total Price: ${totalPrice.toFixed(2)}</Text>
                 </View>
-
                 <Button
                     mode="contained"
                     onPress={handleAddEntry}
                     style={styles.addButton}
-                    theme={{ colors: { primary: '#FFD700' } }}
-                    disabled={isButtonDisabled}
+                    // disabled={isButtonDisabled}
                 >
                     Add
                 </Button>
@@ -111,11 +164,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: 'white',
         marginBottom: 20,
-    },
-    dateText: {
-        fontSize: 18,
-        color: 'white',
-        marginBottom: 10,
     },
     inputContainer: {
         flexDirection: 'row',
