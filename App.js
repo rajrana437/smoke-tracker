@@ -1,46 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View } from 'react-native'; // Import ActivityIndicator
-import { auth } from './services/firebase';
-
 import HomeScreen from './screens/HomeScreen';
 import RegisterScreen from './screens/Register';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import { auth } from './services/firebase'; // Import Firebase auth and custom login method
+import LoadingScreen from './screens/LoadingScreen';
+import { onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 const Stack = createNativeStackNavigator();
 
 function App() {
-  const [initializing, setInitializing] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setCurrentUser(user);
-      if (initializing) {
-        setInitializing(false);
+    const checkToken = async () => {
+      try {
+        // Use the stored token to sign in the user
+
+        onAuthStateChanged(auth, user => {
+          if (user) {
+            console.log(user);
+
+            setUser(user);
+
+            setLoading(false);
+
+          } else {
+            setLoading(false)
+          }
+        })
+      } catch (error) {
+        console.error('Error checking token:', error);
+        setLoading(false);
       }
-    });
+    };
 
-    return unsubscribe;
-  }, [initializing]);
+    checkToken();
+  }, []);
 
-  if (initializing) {
-    // Render a loading indicator while Firebase initializes
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FFD700" />
-      </View>
-    );
+  if (loading) {
+    // Add a loading screen or spinner while checking the token
+    return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer>
       <Stack.Navigator>
-        {currentUser ? (
-          <Stack.Screen name="Smoke Tracker" component={HomeScreen} />
-        ) : (
-          <Stack.Screen name="Register" component={RegisterScreen} />
-        )}
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="HomeScreen" component={HomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

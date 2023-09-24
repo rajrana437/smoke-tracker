@@ -3,8 +3,11 @@ import { View, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
 import { collection, addDoc, Timestamp, doc, getDocs } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
+import Ionicons from '@expo/vector-icons/AntDesign';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const HomeScreen = () => {
+
+const HomeScreen = ({navigation}) => {
     const [cigaretteCount, setCigaretteCount] = useState('');
     const [cigarettePrice, setCigarettePrice] = useState(''); // Changed to a number
     const [entries, setEntries] = useState([]);
@@ -44,6 +47,21 @@ const HomeScreen = () => {
         }
     }, [currentUser]);
 
+    const handleLogout = async () => {
+        try {
+            await auth.signOut().then(res => {
+                AsyncStorage.clear();
+
+                navigation.navigate('Register');
+            }).catch(error => {
+                console.log(error);
+            })
+
+            // Navigate to the register screen
+        } catch (error) {
+            console.error('Error logging out:', error);
+        }
+    };
     const handleAddEntry = async () => {
         if (cigaretteCount && cigarettePrice && !isNaN(parseFloat(cigarettePrice))) {
             const newEntry = {
@@ -98,7 +116,13 @@ const HomeScreen = () => {
     return (
         <SafeAreaView style={styles.safeArea}>
             <View style={styles.container}>
+            <View style={styles.headingContainer}>
+
                 <Text style={styles.title}>Cigarette Tracker</Text>
+
+            <Ionicons name="logout" size={27} color="white" style={styles.logoutButton} onPress={handleLogout} />
+            </View>
+
                 <View style={styles.inputContainer}>
                     <TextInput
                         label="No. of Cigarettes"
@@ -211,6 +235,13 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
     },
+    logoutButton: {
+
+    },
+    headingContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    }
 });
 
 export default HomeScreen;

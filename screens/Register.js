@@ -1,33 +1,67 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Image } from 'react-native';
-import { TextInput, Button, Title } from 'react-native-paper';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Image, Keyboard } from 'react-native';
+import { TextInput, Button, Title, Text } from 'react-native-paper';
 import { auth, db } from "../services/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+
 
 import { doc, setDoc } from "firebase/firestore"
+import { useFocusEffect } from '@react-navigation/native';
 
 const RegisterScreen = ({ navigation }) => {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
 
+    useFocusEffect(
+        React.useCallback(() => {
+          return () => {
+            setName('');
+            setPhone('');
+            Keyboard.dismiss();
+          };
+        }, [])
+      );
+
     const handleRegister = async () => {
         try {
             await createUserWithEmailAndPassword(auth, `${name.replace(/ /g, "")}@yopmail.com`, phone)
-                .then((userCredential) => {
+                .then(async (userCredential) => {
                     const userID = userCredential.user.uid;
+                    const token = await userCredential.user.getIdToken();
 
+                    console.log(userCredential.user.stsTokenManager.refreshToken);
+                    await AsyncStorage.setItem('authToken', token);
+                    
                     setDoc(doc(db, "users", `${userID}`), {
                         phone,
                         name
                     }).then(() => {
                         console.log("User document successfully written!");
-                        navigation.navigate('Smoke Tracker');
+                        navigation.navigate('HomeScreen');
                     }).catch((error) => {
                         console.error("Error writing user document: ", error);
                     });
                 })
                 .catch((error) => {
                     alert('Signup Error, try again!')
+
+                    console.log('Error during user creation in Auth: ', error);
+                });
+        } catch (error) {
+            console.log('Error during user registration process: ', error);
+            alert('Signup Error, try again!')
+        }
+    };
+
+    const handleLogin = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, `${name.replace(/ /g, "")}@yopmail.com`, phone)
+                .then(async (userCredential) => {
+                    navigation.navigate('HomeScreen');
+                })
+                .catch((error) => {
+                    alert('Incorrect name or phone, try again!')
 
                     console.log('Error during user creation in Auth: ', error);
                 });
@@ -73,10 +107,22 @@ const RegisterScreen = ({ navigation }) => {
                 mode="contained"
                 onPress={handleRegister}
                 style={styles.button}
-                theme={{ colors: { primary: 'white' } }}
+                // theme={{ colors: { primary: 'grey' } }}
             >
                 Register
             </Button>
+
+<Text style={styles.orText}>OR</Text>
+
+            <Button
+                mode="contained"
+                onPress={handleLogin}
+                style={styles.button}
+                // theme={{ colors: { primary: 'white' } }}
+            >
+                Login
+            </Button>
+            
         </View>
     );
 };
@@ -93,6 +139,11 @@ const styles = StyleSheet.create({
         width: 130, // Adjust the width and height as needed
         height: 100,
         marginBottom: 30,
+    },
+    orText: {
+        color: 'white',
+        marginTop: 20,
+        fontWeight: 'bold'
     },
     title: {
         fontSize: 24,
