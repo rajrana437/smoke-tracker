@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'; // Import 
 import { auth } from './services/firebase'; // Import Firebase auth and custom login method
 import LoadingScreen from './screens/LoadingScreen';
 import { onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
+import { PaperProvider } from 'react-native-paper';
 
 const Stack = createNativeStackNavigator();
 
@@ -46,12 +47,15 @@ function App() {
   }
 
   return (
+    <PaperProvider>
     <NavigationContainer>
       <Stack.Navigator>
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+
+    </PaperProvider>
   );
 }
 

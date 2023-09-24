@@ -1,247 +1,327 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
-import { TextInput, Button, Text } from 'react-native-paper';
-import { collection, addDoc, Timestamp, doc, getDocs } from 'firebase/firestore';
+import { View, StyleSheet, SafeAreaView, ScrollView, Button as RNButton } from 'react-native'; // Rename Button to RNButton
+import { TextInput, Button, Text, Portal, Modal, IconButton } from 'react-native-paper'; // Import Portal, Modal, and IconButton
+import {
+  collection,
+  addDoc,
+  Timestamp,
+  doc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+} from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import Ionicons from '@expo/vector-icons/AntDesign';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker'; // Import DateTimePicker
 
+const HomeScreen = ({ navigation }) => {
+  const [cigaretteCount, setCigaretteCount] = useState('');
+  const [cigarettePrice, setCigarettePrice] = useState('');
+  const [entries, setEntries] = useState([]);
+  const [isButtonDisabled, setIsButtonDisabled] = useState(true);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const [selectedDate, setSelectedDate] = useState(new Date()); // Store selected date
+  const [showDatePicker, setShowDatePicker] = useState(false); // Control date picker visibility
 
-const HomeScreen = ({navigation}) => {
-    const [cigaretteCount, setCigaretteCount] = useState('');
-    const [cigarettePrice, setCigarettePrice] = useState(''); // Changed to a number
-    const [entries, setEntries] = useState([]);
-    const [isButtonDisabled, setIsButtonDisabled] = useState(true);
-    const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+    });
+    return unsubscribe;
+  }, []);
 
-    useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((user) => {
-            setCurrentUser(user);
-        });
-        return unsubscribe;
-    }, []);
-
-    useEffect(() => {
-        // Load user's existing entries when the component mounts
-        if (currentUser) {
-            const loadEntries = async () => {
-                try {
-                    const userDocRef = doc(db, 'users', currentUser.uid);
-                    const entryCollectionRef = collection(userDocRef, 'entries');
-                    
-                    // Use a query to get the documents in the 'entries' collection
-                    const querySnapshot = await getDocs(entryCollectionRef);
-                    
-                    const loadedEntries = [];
-                    querySnapshot.forEach((doc) => {
-                        loadedEntries.push({ id: doc.id, ...doc.data() });
-                    });
-    
-                    setEntries(loadedEntries);
-                } catch (error) {
-                    console.error('Error loading entries:', error);
-                }
-            };
-    
-            loadEntries();
-        }
-    }, [currentUser]);
-
-    const handleLogout = async () => {
+  useEffect(() => {
+    // Load user's existing entries when the component mounts
+    if (currentUser) {
+      const loadEntries = async () => {
         try {
-            await auth.signOut().then(res => {
-                AsyncStorage.clear();
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const entryCollectionRef = collection(userDocRef, 'entries');
 
-                navigation.navigate('Register');
-            }).catch(error => {
-                console.log(error);
-            })
+          // Use a query to get the documents in the 'entries' collection
+          const q = query(entryCollectionRef, orderBy('timestamp', 'desc'));
 
-            // Navigate to the register screen
+          const querySnapshot = await getDocs(q);
+
+          const loadedEntries = [];
+          querySnapshot.forEach((doc) => {
+            loadedEntries.push({ id: doc.id, ...doc.data() });
+          });
+
+          setEntries(loadedEntries);
         } catch (error) {
-            console.error('Error logging out:', error);
+          console.error('Error loading entries:', error);
         }
-    };
-    const handleAddEntry = async () => {
-        if (cigaretteCount && cigarettePrice && !isNaN(parseFloat(cigarettePrice))) {
-            const newEntry = {
-                count: cigaretteCount,
-                price: parseFloat(cigarettePrice), // Ensure that price is a valid number
-                timestamp: Timestamp.now(),
-            };
+      };
 
-            try {
-                // Get the user's document reference
-                const userDocRef = doc(db, 'users', currentUser.uid);
+      loadEntries();
+    }
+  }, [currentUser]);
 
-                // Add the new entry to a subcollection named 'entries'
-                const entryCollectionRef = collection(userDocRef, 'entries');
-                await addDoc(entryCollectionRef, newEntry);
+  const handleLogout = async () => {
+    try {
+      await auth
+        .signOut()
+        .then((res) => {
+          AsyncStorage.clear();
+          navigation.navigate('Register');
+        })
+        .catch((error) => {
+          console.log(error);
+        });
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
-                setEntries([...entries, newEntry]);
-                setCigaretteCount('');
-                setCigarettePrice('');
-                setIsButtonDisabled(true);
-            } catch (error) {
-                console.error('Error adding entry:', error);
-            }
-        } else {
-            if (!entries.length) return;
-            let singleCig = entries.find(e => e.count === "1");
-            const newEntry = {
-                count: singleCig.count,
-                price: parseFloat(singleCig.price),
-                timestamp: Timestamp.now(),
-            };
+  const handleAddEntry = async () => {
+    if (cigaretteCount && cigarettePrice && !isNaN(parseFloat(cigarettePrice))) {
+      const newEntry = {
+        count: cigaretteCount,
+        price: parseFloat(cigarettePrice),
+        timestamp: Timestamp.now(),
+      };
 
-            try {
-                const userDocRef = doc(db, 'users', currentUser.uid);
-                const entryCollectionRef = collection(userDocRef, 'entries');
-                await addDoc(entryCollectionRef, newEntry);
+      try {
+        // Get the user's document reference
+        const userDocRef = doc(db, 'users', currentUser.uid);
 
-                setEntries([...entries, newEntry]);
-                setCigaretteCount('');
-                setCigarettePrice('');
-                setIsButtonDisabled(true);
-            } catch (error) {
-                console.error('Error adding entry:', error);
-            }
-        }
-    };
+        // Add the new entry to a subcollection named 'entries'
+        const entryCollectionRef = collection(userDocRef, 'entries');
+        await addDoc(entryCollectionRef, newEntry);
 
-    // Calculate total cigarettes and total price
-    const totalCigarettes = entries.reduce((total, entry) => total + Number(entry.count), 0);
-    const totalPrice = entries.reduce((total, entry) => total + entry.price * Number(entry.count), 0);
+        setEntries([newEntry, ...entries]);
+        setCigaretteCount('');
+        setCigarettePrice('');
+        setIsButtonDisabled(true);
+      } catch (error) {
+        console.error('Error adding entry:', error);
+      }
+    } else {
+      if (!entries.length) return;
+      let singleCig = entries.find((e) => e.count === '1');
+      const newEntry = {
+        count: singleCig.count,
+        price: parseFloat(singleCig.price),
+        timestamp: Timestamp.now(),
+      };
 
-    return (
-        <SafeAreaView style={styles.safeArea}>
-            <View style={styles.container}>
-            <View style={styles.headingContainer}>
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const entryCollectionRef = collection(userDocRef, 'entries');
+        await addDoc(entryCollectionRef, newEntry);
 
-                <Text style={styles.title}>Cigarette Tracker</Text>
+        setEntries([newEntry, ...entries]);
+        setCigaretteCount('');
+        setCigarettePrice('');
+        setIsButtonDisabled(true);
+      } catch (error) {
+        console.error('Error adding entry:', error);
+      }
+    }
+  };
 
-            <Ionicons name="logout" size={27} color="white" style={styles.logoutButton} onPress={handleLogout} />
+  const toggleDatePicker = () => {
+    setShowDatePicker(!showDatePicker);
+  };
+
+  const onDateChange = (event, date) => {
+    if (date === undefined) {
+      // Cancelled
+      toggleDatePicker();
+    } else {
+      setSelectedDate(date);
+      toggleDatePicker();
+      // You can add code here to filter entries based on the selected date.
+    }
+  };
+
+  // Calculate total cigarettes and total price
+  const totalCigarettes = entries.reduce(
+    (total, entry) => total + Number(entry.count),
+    0
+  );
+  const totalPrice = entries.reduce(
+    (total, entry) => total + entry.price * Number(entry.count),
+    0
+  );
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.headingContainer}>
+          <Text style={styles.title}>Cigarette Tracker</Text>
+          <Ionicons
+            name="logout"
+            size={27}
+            color="white"
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          />
+        </View>
+        <View style={styles.inputContainer}>
+          <TextInput
+            label="No. of Cigarettes"
+            value={cigaretteCount}
+            onChangeText={(text) => {
+              setCigaretteCount(text);
+              setIsButtonDisabled(!(text && cigarettePrice));
+            }}
+            style={styles.input}
+            keyboardType="numeric"
+          />
+          <TextInput
+            label="Price per Cigarette"
+            value={cigarettePrice}
+            onChangeText={(text) => {
+              setCigarettePrice(text);
+              setIsButtonDisabled(!(text && cigaretteCount));
+            }}
+            style={styles.input}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={styles.datePickerContainer}>
+          <Text style={styles.datePickerLabel}>Select Date:</Text>
+          <RNButton // Use RNButton for the native date picker button
+            title={selectedDate.toLocaleDateString()}
+            onPress={toggleDatePicker}
+          />
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              is24Hour={true}
+              display="default"
+              onChange={onDateChange}
+            />
+          )}
+        </View>
+        <ScrollView
+          style={styles.entriesContainer}
+          contentContainerStyle={styles.entriesContent}
+        >
+          {entries.map((entry, index) => (
+            <View key={index} style={styles.entry}>
+              <Text style={styles.entryText}>Cigarettes: {entry.count}</Text>
+              <Text style={styles.entryText}>Price: ${entry.price.toFixed(2)}</Text>
             </View>
-
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        label="No. of Cigarettes"
-                        value={cigaretteCount}
-                        onChangeText={(text) => {
-                            setCigaretteCount(text);
-                            setIsButtonDisabled(!(text && cigarettePrice));
-                        }}
-                        style={styles.input}
-                        keyboardType="numeric"
-                    />
-                    <TextInput
-                        label="Price per Cigarette"
-                        value={cigarettePrice}
-                        onChangeText={(text) => {
-                            setCigarettePrice(text);
-                            setIsButtonDisabled(!(text && cigaretteCount));
-                        }}
-                        style={styles.input}
-                        keyboardType="numeric"
-                    />
-                </View>
-                <ScrollView
-                    style={styles.entriesContainer}
-                    contentContainerStyle={styles.entriesContent}
-                >
-                    {entries.map((entry, index) => (
-                        <View key={index} style={styles.entry}>
-                            <Text style={styles.entryText}>Cigarettes: {entry.count}</Text>
-                            <Text style={styles.entryText}>Price: ${entry.price.toFixed(2)}</Text>
-                        </View>
-                    ))}
-                </ScrollView>
-                <View style={styles.totalRow}>
-                    <Text style={styles.totalText}>Total Cigarettes: {totalCigarettes}</Text>
-                    <Text style={styles.totalText}>Total Price: ${totalPrice.toFixed(2)}</Text>
-                </View>
-                <Button
-                    mode="contained"
-                    onPress={handleAddEntry}
-                    style={styles.addButton}
-                    // disabled={isButtonDisabled}
-                >
-                    Add
-                </Button>
-            </View>
-        </SafeAreaView>
-    );
+          ))}
+        </ScrollView>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalText}>Total Cigarettes: {totalCigarettes}</Text>
+          <Text style={styles.totalText}>Total Price: ${totalPrice.toFixed(2)}</Text>
+        </View>
+        <Button
+          mode="contained"
+          onPress={handleAddEntry}
+          style={styles.addButton}
+          disabled={isButtonDisabled}
+        >
+          Add
+        </Button>
+      </View>
+    </SafeAreaView>
+  );
 };
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: '#333', // Background color
-    },
-    container: {
-        flex: 1,
-        padding: 20,
-        backgroundColor: '#333', // Background color
-    },
-    title: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: 'white',
-        marginBottom: 20,
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 20,
-    },
-    input: {
-        flex: 1,
-        marginRight: 10,
-        borderRadius: 10,
-        backgroundColor: 'rgba(255,255,255,0.3)',
-    },
-    addButton: {
-        width: '100%',
-        borderRadius: 10,
-        alignSelf: 'center',
-        backgroundColor: '#FFD700',
-    },
-    entriesContainer: {
-        flex: 1,
-    },
-    entriesContent: {
-        paddingVertical: 10,
-    },
-    entry: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        borderRadius: 10,
-        marginBottom: 10,
-        padding: 10,
-    },
-    entryText: {
-        color: 'white',
-    },
-    totalRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        backgroundColor: 'rgba(255,255,255,0.3)',
-        borderRadius: 10,
-        marginBottom: 10,
-        padding: 10,
-    },
-    totalText: {
-        color: 'white',
-        fontWeight: 'bold',
-    },
-    logoutButton: {
-
-    },
-    headingContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    }
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#333', // Background color
+  },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#333', // Background color
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 20,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  input: {
+    flex: 1,
+    marginRight: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  addButton: {
+    width: '100%',
+    borderRadius: 10,
+    alignSelf: 'center',
+    backgroundColor: '#FFD700',
+  },
+  entriesContainer: {
+    flex: 1,
+  },
+  entriesContent: {
+    paddingVertical: 10,
+  },
+  entry: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 10,
+    marginBottom: 10,
+    padding: 10,
+  },
+  entryText: {
+    color: 'white',
+  },
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  datePickerLabel: {
+    color: 'white',
+    marginRight: 10,
+  },
+  datePickerButton: {
+    flex: 1,
+    borderColor: 'white',
+    borderWidth: 1,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  datePickerModal: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePickerCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 10,
+    marginBottom: 10,
+    padding: 10,
+  },
+  totalText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  logoutButton: {},
+  headingContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
 });
 
 export default HomeScreen;
