@@ -20,6 +20,7 @@ const HomeScreen = ({ navigation }) => {
   const [cigaretteCount, setCigaretteCount] = useState('');
   const [cigarettePrice, setCigarettePrice] = useState('');
   const [entries, setEntries] = useState([]);
+  const [filteredEntries, setFilteredEntries] = useState([]); // State for filtered entries
   const [isButtonDisabled, setIsButtonDisabled] = useState(true);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [selectedDate, setSelectedDate] = useState(new Date()); // Store selected date
@@ -51,6 +52,7 @@ const HomeScreen = ({ navigation }) => {
           });
 
           setEntries(loadedEntries);
+          setFilteredEntries(loadedEntries); // Initialize filtered entries with all entries
         } catch (error) {
           console.error('Error loading entries:', error);
         }
@@ -59,6 +61,21 @@ const HomeScreen = ({ navigation }) => {
       loadEntries();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    // Update filtered entries when selectedDate changes
+    if (selectedDate) {
+      const filtered = entries.filter((entry) => {
+        const entryDate = entry.timestamp.toDate();
+        return (
+          entryDate.getDate() === selectedDate.getDate() &&
+          entryDate.getMonth() === selectedDate.getMonth() &&
+          entryDate.getFullYear() === selectedDate.getFullYear()
+        );
+      });
+      setFilteredEntries(filtered);
+    }
+  }, [selectedDate, entries]);
 
   const handleLogout = async () => {
     try {
@@ -96,6 +113,7 @@ const HomeScreen = ({ navigation }) => {
         setCigaretteCount('');
         setCigarettePrice('');
         setIsButtonDisabled(true);
+        setSelectedDate(new Date());
       } catch (error) {
         console.error('Error adding entry:', error);
       }
@@ -128,14 +146,12 @@ const HomeScreen = ({ navigation }) => {
   };
 
   const onDateChange = (event, date) => {
-    if (date === undefined) {
-      // Cancelled
+    if (event.type === 'dismissed') {
       toggleDatePicker();
-    } else {
-      setSelectedDate(date);
-      toggleDatePicker();
-      // You can add code here to filter entries based on the selected date.
+      return;
     }
+    setSelectedDate(date);
+    toggleDatePicker();
   };
 
   // Calculate total cigarettes and total price
@@ -185,11 +201,8 @@ const HomeScreen = ({ navigation }) => {
         </View>
         <View style={styles.datePickerContainer}>
           <Text style={styles.datePickerLabel}>Select Date:</Text>
-          <RNButton // Use RNButton for the native date picker button
-            title={selectedDate.toLocaleDateString()}
-            onPress={toggleDatePicker}
-          />
-          {showDatePicker && (
+
+          {showDatePicker ? (
             <DateTimePicker
               value={selectedDate}
               mode="date"
@@ -197,13 +210,16 @@ const HomeScreen = ({ navigation }) => {
               display="default"
               onChange={onDateChange}
             />
-          )}
+          ) :           <RNButton // Use RNButton for the native date picker button
+          title={selectedDate.toLocaleDateString()}
+          onPress={toggleDatePicker}
+        />}
         </View>
         <ScrollView
           style={styles.entriesContainer}
           contentContainerStyle={styles.entriesContent}
         >
-          {entries.map((entry, index) => (
+          {filteredEntries.map((entry, index) => (
             <View key={index} style={styles.entry}>
               <Text style={styles.entryText}>Cigarettes: {entry.count}</Text>
               <Text style={styles.entryText}>Price: ${entry.price.toFixed(2)}</Text>
@@ -285,13 +301,6 @@ const styles = StyleSheet.create({
   datePickerLabel: {
     color: 'white',
     marginRight: 10,
-  },
-  datePickerButton: {
-    flex: 1,
-    borderColor: 'white',
-    borderWidth: 1,
-    borderRadius: 10,
-    backgroundColor: 'transparent',
   },
   datePickerModal: {
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

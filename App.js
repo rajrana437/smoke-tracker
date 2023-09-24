@@ -51,8 +51,12 @@ function App() {
     <NavigationContainer>
       <Stack.Navigator>
         <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="HomeScreen" component={HomeScreen} />
-      </Stack.Navigator>
+        <Stack.Screen
+            name="HomeScreen"
+            component={HomeScreen}
+            options={{  headerBackVisible:false }} // Set headerLeft to null to remove the back button
+          />    
+          </Stack.Navigator>
     </NavigationContainer>
 
     </PaperProvider>
