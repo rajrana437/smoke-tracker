@@ -48,16 +48,16 @@ function App() {
 
   return (
     <PaperProvider>
-    <NavigationContainer>
-      <Stack.Navigator>
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen
+      <NavigationContainer>
+        <Stack.Navigator>
+          <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+          <Stack.Screen
             name="HomeScreen"
             component={HomeScreen}
-            options={{  headerBackVisible:false }} // Set headerLeft to null to remove the back button
-          />    
-          </Stack.Navigator>
-    </NavigationContainer>
+            options={{ headerBackVisible: false, headerShown: false }} // Set headerLeft to null to remove the back button
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
 
     </PaperProvider>
   );

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Image, Keyboard } from 'react-native';
-import { TextInput, Button, Title, Text } from 'react-native-paper';
+import { TextInput, Button, Text } from 'react-native-paper';
 import { auth, db } from "../services/firebase";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+// import { Header } from '@react-navigation/native';
 
 
 import { doc, setDoc } from "firebase/firestore"
@@ -12,6 +13,10 @@ import { useFocusEffect } from '@react-navigation/native';
 const RegisterScreen = ({ navigation }) => {
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
+
+    RegisterScreen.navigationOptions = {
+        header: () => null, // This will hide the header for this screen
+      };
 
     useFocusEffect(
         React.useCallback(() => {
@@ -22,6 +27,13 @@ const RegisterScreen = ({ navigation }) => {
           };
         }, [])
       );
+
+      useEffect(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user) navigation.navigate('HomeScreen');
+        });
+        return unsubscribe;
+      }, []);
 
     const handleRegister = async () => {
         try {
@@ -112,7 +124,7 @@ const RegisterScreen = ({ navigation }) => {
                 Register
             </Button>
 
-<Text style={styles.orText}>OR</Text>
+<Text style={styles.orText}>Existing User? Login</Text>
 
             <Button
                 mode="contained"
